@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>map-mask-whereToBuy</title>
+
+    <!-- 🗐〖JavaScript - Map Marker CDN Links - Leaflet〗href=https://leafletjs.com/download.html -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+
+    <!-- 🗐〖JavaScript - Map Marker CDN Links - Leaflet Plugin - MarkerCluster〗href=https://unpkg.com/browse/leaflet.markercluster@1.4.1/dist/ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+        }
+        .bdb { border-bottom: 1px solid #AAA;}
+    </style>
+
+</head>
+
+<body>
+    <div id="map"></div>
+</body>
+
+<script>
+
+    // ☛TODO: 地圖設置
+    let lat = 0;
+    let lon = 0;
+    const mapFn = function (lat, lon) {
+        // ☛TODO: 重新載入map時，清除 lat, lon 資料
+        if (this.map != null) {
+            this.map._leaflet_id = null;
+        }
+
+        // ☛TODO: 啟用 Leaflet 外掛
+        var map = L.map("map").setView([lat, lon], 16);
+
+        // ☛TODO: 載入 openstreetmap 地圖
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // ☛TODO: 自定Icon
+        // 🛈 常人和小孩存量
+        var greenIcon = new L.Icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // 🛈 常人或小孩有存量
+        var yellowIcon = new L.Icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // 🛈 常人或小孩無存量
+        var grayIcon = new L.Icon({
+            iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gray.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        // ☛TODO: 啟用 MarkerCluster 外掛
+        var markers = new L.MarkerClusterGroup().addTo(map);
+
+        // ☛TODO: Ajax 資料串接
+        const ajaxFn = function () {
+            var xhr = new XMLHttpRequest();
+
+            xhr.open('GET', "https://raw.githubusercontent.com/kiang/pharmacies/master/json/points.json");
+
+            xhr.send();
+
+            xhr.onload = function () {
+                // 🛈 每次loading都會刪除之前map的資料
+                markers.clearLayers();
+
+                // 🛈 將它轉成物件陣列的JSON格式『備註：經由ajax撈回來的資料一定是string, 故一定要用JSON.parse再轉成JSON格式』
+                // 🛈 讀取該json的features
+                var data = JSON.parse(xhr.responseText).features;
+
+                // 🛈 用迴圈把資料全部列出來
+                for (let i = 0; data.length > i; i++) {
+
+                    // 🛈 設立判斷式。假如口罩，有庫存為綠標，無庫存為紅標。
+                    var mask;
+                    if (data[i].properties.mask_adult == 0 && data[i].properties.mask_child == 0) {
+                        // mask = redIcon;
+                        mask = grayIcon;
+                    } else if (data[i].properties.mask_adult == 0 || data[i].properties.mask_child == 0) {
+                        mask = yellowIcon;
+                    } else {
+                        mask = greenIcon;
+                    }
+
+                    // 🛈 在該圖層上，分別加上marker。
+                    // 🛈 data[i].geometry.coordinates[1] 為 該JSON檔的 latitude(緯度)
+                    // 🛈 data[i].geometry.coordinates[0] 為 該JSON檔的 longitude(經度)
+                    // 🛈 icon 設立變數 mask
+                    // 🛈 .bindPopup(data[i].properties.name) 彈跳視窗上 綁定藥局名稱
+                    // 🛈 這裡"\"為javascript為換行
+                    markers.addLayer(L.marker([data[i].geometry.coordinates[1], data[i].geometry.coordinates[0]], { icon: mask })
+                        .bindPopup(
+                            '<div class="bdb">\
+                            <h1>'+ data[i].properties.name + '</h1>\
+                            <h3> <span>電話：</span> <a href="tel:'+ data[i].properties.phone + '">' + data[i].properties.phone + '</a></h3>\
+                            <h3> <span>地址：</span>'+ data[i].properties.address + '</h3>\
+                            <h3> <span>更新時間：</span>'+ data[i].properties.updated + '</h3>\
+                        </div>\
+                        <p>成人口罩數量：'+ data[i].properties.mask_adult + '</p>\
+                        <p>小孩口罩數量：'+ data[i].properties.mask_child + '</p>'
+                        ));
+                }
+            };
+        };
+
+        // ☛TODO: 一進畫面就先load ajax資料
+        ajaxFn();
+
+        // ☛TODO: 定時器 資料串接
+        // 🛈 測試60秒 load一次
+        const intervalID = window.setInterval(ajaxFn, 60000);
+
+        map.addLayer(markers);
+    }
+
+    // ☛TODO: 預設地圖經緯度
+    mapFn(22.604799, 120.2976256);
+
+
+    // ☛TODO: 啟用 GPS 定位
+    function success(position) {
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+        mapFn(lat, lon);
+    };
+
+    function error() { alert("Unable to retrieve your location") };
+
+    navigator.geolocation.getCurrentPosition(success, error);
+</script>
+
+</html>
